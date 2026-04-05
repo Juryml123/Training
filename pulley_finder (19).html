@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pulley Viability Finder</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); padding: 30px; }
+        h1 { color: #333; margin-bottom: 10px; text-align: center; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
+        .input-section { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #667eea; }
+        .input-section label { font-weight: 600; color: #333; display: block; margin-bottom: 10px; }
+        .input-section select, .input-section input, .input-section button { width: 100%; padding: 12px; font-size: 14px; border: 2px solid #ddd; border-radius: 6px; }
+        .input-section button { cursor: pointer; background: #667eea; color: white; border: none; }
+        .input-section button:disabled { background: #a3a3a3; cursor: not-allowed; }
+        .specs-section { background: #f0f4ff; padding: 20px; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #667eea; }
+        .specs-section h2 { color: #667eea; margin-bottom: 15px; font-size: 18px; }
+        .specs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .spec-item { background: white; padding: 12px; border-radius: 6px; border-left: 3px solid #667eea; }
+        .spec-label { font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600; }
+        .spec-value { font-size: 18px; font-weight: 700; color: #333; margin-top: 5px; }
+        .tabs-nav { display: flex; gap: 5px; margin-bottom: 25px; border-bottom: 2px solid #e0e0e0; }
+        .tab-btn { padding: 12px 20px; background: white; border: none; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+        .tab-btn:hover { color: #667eea; background: #f8f9fa; }
+        .tab-btn.active { color: #667eea; border-bottom-color: #667eea; }
+        .results-column { background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; display: none; }
+        .results-column.active { display: block; }
+        .results-column h2 { color: #333; margin-bottom: 15px; font-size: 18px; color: #667eea; }
+        .result-item { background: #f8f9fa; padding: 15px; margin-bottom: 12px; border-radius: 6px; border-left: 4px solid #667eea; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+        .result-item:hover { transform: translateX(5px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15); }
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .result-name { font-weight: 700; color: #333; font-size: 14px; }
+        .similarity-score { background: #667eea; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .result-details { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; }
+        .result-detail { color: #666; }
+        .result-detail-label { font-weight: 600; color: #333; }
+        .result-remarks { margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 12px; color: #666; font-style: italic; }
+        .rank-badge { display: inline-block; background: #667eea; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; line-height: 28px; font-weight: 700; font-size: 12px; }
+        .no-data { padding: 20px; text-align: center; color: #999; background: #f8f9fa; border-radius: 6px; }
+        @media (max-width: 768px) { .tabs-nav { flex-wrap: wrap; } .specs-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Pulley Viability Finder</h1>
+        <p class="subtitle">Select a database pulley and choose an area to find viable replacements</p>
+
+        <div class="input-section">
+            <label for="data-file">Upload JSON file:</label>
+            <input type="file" id="data-file" accept=".json" />
+            <button id="load-data-btn" disabled>Load Data</button>
+            <div id="data-status" style="margin-top: 8px; color: #2c7a2c; font-size: 13px;">Please select a JSON file and click Load Data</div>
+        </div>
+
+        <div class="input-section">
+            <label for="pulley-select">Select a Pulley from Database:</label>
+            <select id="pulley-select" disabled>
+                <option value="">-- Choose a Pulley --</option>
+            </select>
+        </div>
+
+        <div id="specs-container" style="display: none;">
+            <div class="specs-section">
+                <h2>📋 Selected Pulley Specifications</h2>
+                <div class="specs-grid" id="specs-grid"></div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <div class="tabs-nav" id="tabs-nav"></div>
+                <div id="slaking-results" class="results-column active">
+                    <h2>🏭 Slaking Viable Pulleys (Top 5)</h2>
+                </div>
+                <div id="lift-results" class="results-column">
+                    <h2>⬆️ 2nd Lift Viable Pulleys (Top 5)</h2>
+                </div>
+                <div id="area-results" class="results-column">
+                    <h2>📍 Area Viable Pulleys (Top 5)</h2>
+                </div>
+            </div>
+        </div>
+
+        <div id="no-selection" class="no-data">
+            Select a pulley from the dropdown above to view its specifications and find viable replacements
+        </div>
+    </div>
+
+    <script>
+let pulleyData = null;
+
+function updateStatus(message, isError) {
+    const status = document.getElementById('data-status');
+    if (!status) return;
+    status.textContent = message;
+    status.style.color = isError ? '#d93025' : '#2c7a2c';
+}
+
+function setUIEnabled(enabled) {
+    const select = document.getElementById('pulley-select');
+    if (select) select.disabled = !enabled;
+}
+
+function validateData(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (!Array.isArray(data.database)) return false;
+    if (!Array.isArray(data.slaking)) return false;
+    if (!Array.isArray(data['2nd_lift'])) return false;
+    if (data.areas === undefined) data.areas = [];
+    if (!Array.isArray(data.areas)) return false;
+    return true;
+}
+
+function initializeApp() {
+    if (!validateData(pulleyData)) {
+        alert('JSON structure must be { database: [...], slaking: [...], "2nd_lift": [...] }.');
+        updateStatus('JSON structure invalid', true);
+        return;
+    }
+
+    populateSelector();
+    populateAreaSelector();
+    setUIEnabled(true);
+    updateStatus('Data loaded successfully');
+
+    if (pulleyData.database.length > 0) {
+        const first = pulleyData.database[0];
+        if (first && first.id !== undefined && first.id !== null) {
+            document.getElementById('pulley-select').value = String(first.id);
+            onPulleySelect();
+        }
+    }
+}
+
+function populateSelector() {
+    const select = document.getElementById('pulley-select');
+    if (!select) return;
+    let html = '<option value="">-- Choose a Pulley --</option>';
+    if (pulleyData && Array.isArray(pulleyData.database)) {
+        pulleyData.database.forEach(pulley => {
+            if (pulley && pulley.id !== undefined && pulley.conveyor && pulley.pulley) {
+                html += `<option value="${String(pulley.id)}">${pulley.conveyor} - ${pulley.pulley} (ID: ${pulley.id})</option>`;
+            }
+        });
+    }
+    select.innerHTML = html;
+}
+
+function populateAreaSelector() {
+    const tabsNav = document.getElementById('tabs-nav');
+    if (!tabsNav) return;
+    
+    let html = '<button class="tab-btn active" data-tab="slaking">🏭 Slaking</button>';
+    html += '<button class="tab-btn" data-tab="2nd_lift">⬆️ 2nd Lift</button>';
+    if (pulleyData && Array.isArray(pulleyData.areas)) {
+        pulleyData.areas.forEach((area, index) => {
+            html += `<button class="tab-btn" data-tab="area_${index}">📍 ${area.name || 'Area ' + (index + 1)}</button>`;
+        });
+    }
+    tabsNav.innerHTML = html;
+    
+    // Attach click handlers to tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+}
+
+function switchTab(tabId) {
+    // Update active tab button
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabId) btn.classList.add('active');
+    });
+    
+    // Hide all result columns
+    document.getElementById('slaking-results').classList.remove('active');
+    document.getElementById('lift-results').classList.remove('active');
+    document.getElementById('area-results').classList.remove('active');
+    
+    // Show selected column
+    if (tabId === 'slaking') {
+        document.getElementById('slaking-results').classList.add('active');
+    } else if (tabId === '2nd_lift') {
+        document.getElementById('lift-results').classList.add('active');
+    } else if (tabId.startsWith('area_')) {
+        document.getElementById('area-results').classList.add('active');
+    }
+    
+    // Re-run the pulley selection to populate the new tab
+    if (document.getElementById('pulley-select').value) {
+        onPulleySelect();
+    }
+}
+
+function normalizeValue(val) {
+    if (val === null || val === undefined || val === 'N/A' || val === '-') return null;
+    return parseFloat(val);
+}
+
+function calculateSimilarity(dbPulley, candidatePulley) {
+    const weights = {
+        drum_diameter: 3,
+        drum_length: 2,
+        shaft_diameter: 2.5,
+        shaft_length_load: 2,
+        shaft_length_free: 2
+    };
+
+    let totalWeight = 0;
+    let totalDistance = 0;
+
+    const dbDrumDia = normalizeValue(dbPulley.drum_diameter);
+    const candDrumDia = normalizeValue(candidatePulley.drum_diameter);
+    if (dbDrumDia && candDrumDia) {
+        const diff = Math.abs(dbDrumDia - candDrumDia);
+        const normalizedDiff = diff / (dbDrumDia || 1);
+        totalDistance += normalizedDiff * weights.drum_diameter;
+        totalWeight += weights.drum_diameter;
+    }
+
+    const dbDrumLen = normalizeValue(dbPulley.drum_length);
+    const candDrumLen = normalizeValue(candidatePulley.drum_length);
+    if (dbDrumLen && candDrumLen) {
+        const diff = Math.abs(dbDrumLen - candDrumLen);
+        const normalizedDiff = diff / (dbDrumLen || 1);
+        totalDistance += normalizedDiff * weights.drum_length;
+        totalWeight += weights.drum_length;
+    }
+
+    const dbShaftDia = normalizeValue(dbPulley.shaft_diameter);
+    const candShaftDia = normalizeValue(candidatePulley.shaft_diameter);
+    if (dbShaftDia && candShaftDia) {
+        const diff = Math.abs(dbShaftDia - candShaftDia);
+        const normalizedDiff = diff / (dbShaftDia || 1);
+        totalDistance += normalizedDiff * weights.shaft_diameter;
+        totalWeight += weights.shaft_diameter;
+    }
+
+    const dbShaftLenLoad = normalizeValue(dbPulley.shaft_length_load_side);
+    const candShaftLen1 = normalizeValue(candidatePulley.shaft_length_1);
+    if (dbShaftLenLoad && candShaftLen1) {
+        const diff = Math.abs(dbShaftLenLoad - candShaftLen1);
+        const normalizedDiff = diff / (dbShaftLenLoad || 1);
+        totalDistance += normalizedDiff * weights.shaft_length_load;
+        totalWeight += weights.shaft_length_load;
+    }
+
+    const dbShaftLenFree = normalizeValue(dbPulley.shaft_length_free_side);
+    const candShaftLen2 = normalizeValue(candidatePulley.shaft_length_2);
+    if (dbShaftLenFree && candShaftLen2) {
+        const diff = Math.abs(dbShaftLenFree - candShaftLen2);
+        const normalizedDiff = diff / (dbShaftLenFree || 1);
+        totalDistance += normalizedDiff * weights.shaft_length_free;
+        totalWeight += weights.shaft_length_free;
+    }
+
+    if (totalWeight === 0) return null;
+    const avgDistance = totalDistance / totalWeight;
+    return Math.max(0, (1 - avgDistance) * 100);
+}
+
+function onPulleySelect() {
+    if (!pulleyData) {
+        alert('Please load JSON data first.');
+        return;
+    }
+
+    const pulleyId = document.getElementById('pulley-select').value;
+    if (!pulleyId) {
+        document.getElementById('specs-container').style.display = 'none';
+        document.getElementById('no-selection').style.display = 'block';
+        return;
+    }
+
+    const selectedPulley = pulleyData.database.find(p => String(p.id) === String(pulleyId));
+    if (!selectedPulley) {
+        alert('Selected pulley not found in loaded data.');
+        return;
+    }
+
+    displaySpecs(selectedPulley);
+
+    // Get the active tab
+    const activeBtn = document.querySelector('.tab-btn.active');
+    const selectedSource = activeBtn ? activeBtn.dataset.tab : 'slaking';
+    let results = [];
+    let activeColumn = 'slaking-results';
+
+    if (selectedSource === 'slaking') {
+        results = findSimilarPulleys(selectedPulley, pulleyData.slaking || [], 5);
+        activeColumn = 'slaking-results';
+    } else if (selectedSource === '2nd_lift') {
+        results = findSimilarPulleys(selectedPulley, pulleyData['2nd_lift'] || [], 5);
+        activeColumn = 'lift-results';
+    } else if (selectedSource.startsWith('area_')) {
+        const areaIndex = parseInt(selectedSource.split('_')[1], 10);
+        if (!Number.isNaN(areaIndex) && pulleyData.areas && pulleyData.areas[areaIndex]) {
+            results = findSimilarPulleys(selectedPulley, pulleyData.areas[areaIndex].pulleys || [], 5);
+        }
+        activeColumn = 'area-results';
+    }
+
+    displayResults(results, activeColumn);
+
+    document.getElementById('specs-container').style.display = 'block';
+    document.getElementById('no-selection').style.display = 'none';
+}
+
+function findSimilarPulleys(dbPulley, candidateList, topN) {
+    const results = candidateList.map(candidate => ({ pulley: candidate, similarity: calculateSimilarity(dbPulley, candidate) }))
+        .filter(r => r.similarity !== null)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, topN);
+    return results;
+}
+
+function displaySpecs(pulley) {
+    const specsGrid = document.getElementById('specs-grid');
+    specsGrid.innerHTML = `
+        <div class="spec-item"><div class="spec-label">Conveyor Line</div><div class="spec-value">${pulley.conveyor || 'N/A'}</div></div>
+        <div class="spec-item"><div class="spec-label">Pulley Type</div><div class="spec-value">${pulley.pulley || 'N/A'}</div></div>
+        <div class="spec-item"><div class="spec-label">Drum Diameter (mm)</div><div class="spec-value">${pulley.drum_diameter || 'N/A'}</div></div>
+        <div class="spec-item"><div class="spec-label">Drum Length (mm)</div><div class="spec-value">${pulley.drum_length || 'N/A'}</div></div>
+        <div class="spec-item"><div class="spec-label">Shaft Diameter (mm)</div><div class="spec-value">${pulley.shaft_diameter || 'N/A'}</div></div>
+        <div class="spec-item"><div class="spec-label">Shaft Length - Load Side (mm)</div><div class="spec-value">${pulley.shaft_length_load_side || 'N/A'}</div></div>
+        <div class="spec-item"><div class="spec-label">Shaft Length - Free Side (mm)</div><div class="spec-value">${pulley.shaft_length_free_side || 'N/A'}</div></div>
+    `;
+}
+
+function displayResults(results, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    let html = '';
+    if (!results || results.length === 0) {
+        html = '<div class="no-data">No viable pulleys found with sufficient data</div>';
+    } else {
+        html = results.map((result, index) => `
+            <div class="result-item">
+                <div class="result-header">
+                    <div style="display: flex; align-items: center; gap: 10px;"><span class="rank-badge">${index + 1}</span><span class="result-name">${result.pulley.pulley_no || 'N/A'}</span></div>
+                    <span class="similarity-score">${result.similarity.toFixed(1)}% Match</span>
+                </div>
+                <div class="result-details">
+                    <div class="result-detail"><span class="result-detail-label">Drum Ø:</span> ${result.pulley.drum_diameter || 'N/A'} mm</div>
+                    <div class="result-detail"><span class="result-detail-label">Drum L:</span> ${result.pulley.drum_length || 'N/A'} mm</div>
+                    <div class="result-detail"><span class="result-detail-label">Shaft Ø:</span> ${result.pulley.shaft_diameter || 'N/A'} mm</div>
+                    <div class="result-detail"><span class="result-detail-label">Status:</span> ${result.pulley.remarks || 'N/A'}</div>
+                </div>
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; font-size: 12px;">
+                    <div class="result-detail"><span class="result-detail-label">Shaft L (Free Side):</span> ${result.pulley.shaft_length_1 || 'N/A'} mm</div>
+                    <div class="result-detail" style="margin-top: 4px;"><span class="result-detail-label">Shaft L (Load Side):</span> ${result.pulley.shaft_length_2 || 'N/A'} mm</div>
+                </div>
+                ${result.pulley.lagging_remarks ? `<div class="result-remarks"><strong>Lagging:</strong> ${result.pulley.lagging_remarks}</div>` : ''}
+            </div>
+        `).join('');
+    }
+    
+    // Get the header and preserve it
+    const header = container.querySelector('h2');
+    if (header) {
+        container.innerHTML = header.outerHTML + html;
+    } else {
+        container.innerHTML = html;
+    }
+}
+
+function setupDataLoader() {
+    const fileInput = document.getElementById('data-file');
+    const loadButton = document.getElementById('load-data-btn');
+
+    fileInput.addEventListener('change', () => {
+        loadButton.disabled = !fileInput.files.length;
+        updateStatus(fileInput.files.length ? `Selected: ${fileInput.files[0].name}` : 'Please select a JSON file', false);
+    });
+
+    loadButton.addEventListener('click', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) { alert('Please select a JSON file first'); return; }
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const parsed = JSON.parse(e.target.result);
+                pulleyData = parsed;
+                initializeApp();
+            } catch (err) {
+                alert('Failed to parse JSON: ' + err.message);
+                updateStatus('JSON parse failed', true);
+            }
+        };
+        reader.onerror = function () {
+            alert('Failed to read file');
+            updateStatus('File read error', true);
+        };
+        reader.readAsText(file);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    setUIEnabled(false);
+    updateStatus('Please load data first', false);
+    setupDataLoader();
+    document.getElementById('pulley-select').addEventListener('change', onPulleySelect);
+});
+    </script>
+</body>
+</html>

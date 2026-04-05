@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pulley Database CMS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); padding: 30px; }
+        h1 { color: #333; margin-bottom: 10px; text-align: center; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
+
+        .file-section { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #667eea; }
+        .file-section label { font-weight: 600; color: #333; display: block; margin-bottom: 10px; }
+        .file-section input, .file-section button { padding: 12px; font-size: 14px; border: 2px solid #ddd; border-radius: 6px; }
+        .file-section button { cursor: pointer; background: #667eea; color: white; border: none; margin-left: 10px; }
+        .file-section button:disabled { background: #a3a3a3; cursor: not-allowed; }
+
+        .tabs { display: flex; margin-bottom: 30px; border-bottom: 2px solid #ddd; }
+        .tab { padding: 15px 25px; background: #f8f9fa; border: none; cursor: pointer; font-size: 16px; font-weight: 600; color: #666; border-radius: 8px 8px 0 0; margin-right: 5px; }
+        .tab.active { background: #667eea; color: white; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .section-header h2 { color: #667eea; font-size: 20px; }
+        .section-controls { display: flex; gap: 15px; align-items: center; }
+        .search-input { padding: 8px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; width: 250px; }
+        .search-input:focus { outline: none; border-color: #667eea; }
+        .add-btn { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+
+        .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; font-weight: 600; color: #333; position: sticky; top: 0; }
+        tr:hover { background: #f0f4ff; }
+        .actions { display: flex; gap: 5px; }
+        .edit-btn { background: #ffc107; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .delete-btn { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal-content { background: white; margin: 5% auto; padding: 30px; border-radius: 10px; width: 90%; max-width: 800px; max-height: 80%; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { color: #333; }
+        .close { font-size: 28px; cursor: pointer; color: #666; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; color: #333; margin-bottom: 5px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .form-group textarea { resize: vertical; min-height: 60px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .save-btn { background: #28a745; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .cancel-btn { background: #6c757d; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-size: 14px; }        .area-tab { position: relative; }
+        .area-actions { display: none; position: absolute; top: 100%; right: 0; background: white; border: 1px solid #ddd; border-radius: 4px; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .area-tab:hover .area-actions { display: flex; flex-direction: column; }
+        .area-action-btn { background: none; border: none; padding: 8px 12px; cursor: pointer; font-size: 12px; text-align: left; white-space: nowrap; }
+        .area-action-btn:hover { background: #f0f4ff; }
+        .area-edit-btn { color: #ffc107; }
+        .area-delete-btn { color: #dc3545; }
+        .export-section { background: #f0f4ff; padding: 20px; border-radius: 8px; margin-top: 30px; text-align: center; border-left: 4px solid #667eea; }
+        .export-btn { background: #17a2b8; color: white; border: none; padding: 15px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 600; }
+
+        .status { margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 14px; }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        @media (max-width: 768px) {
+            .tabs { flex-direction: column; }
+            .form-grid { grid-template-columns: 1fr; }
+            .modal-content { margin: 10% auto; width: 95%; }
+            .section-controls { flex-direction: column; gap: 10px; }
+            .search-input { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ Pulley Database CMS</h1>
+        <p class="subtitle">Manage and edit the pulley database, Slaking inventory, and 2nd Lift inventory</p>
+
+        <div class="file-section">
+            <label for="data-file">Load JSON Database:</label>
+            <input type="file" id="data-file" accept=".json" />
+            <button id="load-data-btn" disabled>Load Data</button>
+            <div id="data-status" class="status">Please select a JSON file to begin editing</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="database">Database</button>
+            <button class="tab" data-tab="slaking">Slaking</button>
+            <button class="tab" data-tab="2nd_lift">2nd Lift</button>
+            <button id="add-area-btn" class="tab" type="button">+ Add Area</button>
+        </div>
+
+        <div id="database" class="tab-content active">
+            <div class="section-header">
+                <h2>📋 Database Pulleys</h2>
+                <div class="section-controls">
+                    <input type="text" class="search-input" placeholder="Search pulleys..." data-section="database" />
+                    <button class="add-btn" data-section="database">+ Add Pulley</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="database-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Conveyor</th>
+                            <th>Pulley</th>
+                            <th>Drum Ø (mm)</th>
+                            <th>Drum L (mm)</th>
+                            <th>Shaft Ø (mm)</th>
+                            <th>Shaft L Load (mm)</th>
+                            <th>Shaft L Free (mm)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="slaking" class="tab-content">
+            <div class="section-header">
+                <h2>🏭 Slaking Inventory</h2>
+                <div class="section-controls">
+                    <input type="text" class="search-input" placeholder="Search pulleys..." data-section="slaking" />
+                    <button class="add-btn" data-section="slaking">+ Add Pulley</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="slaking-table">
+                    <thead>
+                        <tr>
+                            <th>Pulley No</th>
+                            <th>Shaft Ø (mm)</th>
+                            <th>Drum Ø (mm)</th>
+                            <th>Drum L (mm)</th>
+                            <th>Shaft L1 (mm)</th>
+                            <th>Shaft L2 (mm)</th>
+                            <th>Key W (mm)</th>
+                            <th>Key L (mm)</th>
+                            <th>Lagging</th>
+                            <th>Remarks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="2nd_lift" class="tab-content">
+            <div class="section-header">
+                <h2>⬆️ 2nd Lift Inventory</h2>
+                <div class="section-controls">
+                    <input type="text" class="search-input" placeholder="Search pulleys..." data-section="2nd_lift" />
+                    <button class="add-btn" data-section="2nd_lift">+ Add Pulley</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="2nd_lift-table">
+                    <thead>
+                        <tr>
+                            <th>Pulley No</th>
+                            <th>Shaft Ø (mm)</th>
+                            <th>Drum Ø (mm)</th>
+                            <th>Drum L (mm)</th>
+                            <th>Shaft L1 (mm)</th>
+                            <th>Shaft L2 (mm)</th>
+                            <th>Key W (mm)</th>
+                            <th>Key L (mm)</th>
+                            <th>Lagging</th>
+                            <th>Remarks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="dynamic-area-contents"></div>
+
+        <div class="export-section">
+            <button id="export-btn" class="export-btn" disabled>📥 Export Updated JSON</button>
+        </div>
+    </div>
+
+    <!-- Modal for editing -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Edit Pulley</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div id="modal-body"></div>
+            <div class="modal-actions">
+                <button class="cancel-btn">Cancel</button>
+                <button class="save-btn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let pulleyData = null;
+        let currentSection = 'database';
+        let editingIndex = -1;
+        let modalMode = 'item';
+        let currentAreaIndex = -1;
+        let editingAreaPulleyIndex = -1;
+
+        // Field definitions for each section
+        const fieldDefinitions = {
+            database: [
+                { key: 'id', label: 'ID', type: 'number', required: true },
+                { key: 'conveyor', label: 'Conveyor Line', type: 'text', required: true },
+                { key: 'pulley', label: 'Pulley Type', type: 'text', required: true },
+                { key: 'drum_diameter', label: 'Drum Diameter (mm)', type: 'number' },
+                { key: 'drum_length', label: 'Drum Length (mm)', type: 'number' },
+                { key: 'shaft_diameter', label: 'Shaft Diameter (mm)', type: 'number' },
+                { key: 'shaft_length_load_side', label: 'Shaft Length Load Side (mm)', type: 'number' },
+                { key: 'shaft_length_free_side', label: 'Shaft Length Free Side (mm)', type: 'number' },
+                { key: 'shaft_length', label: 'Total Shaft Length (mm)', type: 'number' },
+                { key: 'load_side_bearing', label: 'Load Side Bearing', type: 'text' },
+                { key: 'free_side_bearing', label: 'Free Side Bearing', type: 'text' }
+            ],
+            slaking: [
+                { key: 'pulley_no', label: 'Pulley Number', type: 'text', required: true },
+                { key: 'shaft_diameter', label: 'Shaft Diameter (mm)', type: 'number' },
+                { key: 'drum_diameter', label: 'Drum Diameter (mm)', type: 'number' },
+                { key: 'drum_length', label: 'Drum Length (mm)', type: 'number' },
+                { key: 'shaft_length_1', label: 'Shaft Length 1 (mm)', type: 'number' },
+                { key: 'shaft_length_2', label: 'Shaft Length 2 (mm)', type: 'number' },
+                { key: 'key_width', label: 'Key Width (mm)', type: 'text' },
+                { key: 'key_length', label: 'Key Length (mm)', type: 'text' },
+                { key: 'lagging_remarks', label: 'Lagging Remarks', type: 'textarea' },
+                { key: 'remarks', label: 'Remarks', type: 'textarea' }
+            ],
+            '2nd_lift': [
+                { key: 'pulley_no', label: 'Pulley Number', type: 'text', required: true },
+                { key: 'shaft_diameter', label: 'Shaft Diameter (mm)', type: 'number' },
+                { key: 'drum_diameter', label: 'Drum Diameter (mm)', type: 'number' },
+                { key: 'drum_length', label: 'Drum Length (mm)', type: 'number' },
+                { key: 'shaft_length_1', label: 'Shaft Length 1 (mm)', type: 'number' },
+                { key: 'shaft_length_2', label: 'Shaft Length 2 (mm)', type: 'number' },
+                { key: 'key_width', label: 'Key Width (mm)', type: 'text' },
+                { key: 'key_length', label: 'Key Length (mm)', type: 'text' },
+                { key: 'lagging_remarks', label: 'Lagging Remarks', type: 'textarea' },
+                { key: 'remarks', label: 'Remarks', type: 'textarea' }
+            ],
+            locations: [
+                { key: 'area', label: 'Area', type: 'text', required: true },
+                { key: 'location', label: 'Location', type: 'text', required: true },
+                { key: 'pulley_no', label: 'Pulley Number', type: 'text', required: true },
+                { key: 'shaft_diameter', label: 'Shaft Diameter (mm)', type: 'number' },
+                { key: 'drum_diameter', label: 'Drum Diameter (mm)', type: 'number' },
+                { key: 'drum_length', label: 'Drum Length (mm)', type: 'number' },
+                { key: 'shaft_length_1', label: 'Shaft Length 1 (mm)', type: 'number' },
+                { key: 'shaft_length_2', label: 'Shaft Length 2 (mm)', type: 'number' },
+                { key: 'key_width', label: 'Key Width (mm)', type: 'text' },
+                { key: 'key_length', label: 'Key Length (mm)', type: 'text' },
+                { key: 'lagging_remarks', label: 'Lagging Remarks', type: 'textarea' },
+                { key: 'remarks', label: 'Remarks', type: 'textarea' }
+            ]
+        };
+        fieldDefinitions.area_pulley = fieldDefinitions.slaking;
+
+        function updateStatus(message, isError = false) {
+            const status = document.getElementById('data-status');
+            status.textContent = message;
+            status.className = 'status ' + (isError ? 'error' : 'success');
+        }
+
+        function validateData(data) {
+            if (!data || typeof data !== 'object') return false;
+            if (!Array.isArray(data.database)) return false;
+            if (!Array.isArray(data.slaking)) return false;
+            if (!Array.isArray(data['2nd_lift'])) return false;
+            if (data.locations === undefined) data.locations = [];
+            if (!Array.isArray(data.locations)) return false;
+            if (data.areas === undefined) data.areas = [];
+            if (!Array.isArray(data.areas)) return false;
+            return true;
+        }
+
+        function loadData() {
+            const fileInput = document.getElementById('data-file');
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) {
+                alert('Please select a JSON file first');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!validateData(parsed)) {
+                        throw new Error('Invalid data structure');
+                    }
+                    pulleyData = parsed;
+                    updateStatus('Data loaded successfully');
+                    document.getElementById('export-btn').disabled = false;
+                    renderAllTables();
+                } catch (err) {
+                    updateStatus('Failed to load data: ' + err.message, true);
+                }
+            };
+            reader.onerror = function() {
+                updateStatus('File read error', true);
+            };
+            reader.readAsText(file);
+        }
+
+        function renderTable(section) {
+            if (!pulleyData) return;
+
+            const table = document.getElementById(section + '-table');
+            const tbody = table.querySelector('tbody');
+            const data = pulleyData[section];
+
+            tbody.innerHTML = data.map((item, index) => {
+                if (section === 'database') {
+                    return `
+                        <tr>
+                            <td>${item.id || ''}</td>
+                            <td>${item.conveyor || ''}</td>
+                            <td>${item.pulley || ''}</td>
+                            <td>${item.drum_diameter || ''}</td>
+                            <td>${item.drum_length || ''}</td>
+                            <td>${item.shaft_diameter || ''}</td>
+                            <td>${item.shaft_length_load_side || ''}</td>
+                            <td>${item.shaft_length_free_side || ''}</td>
+                            <td class="actions">
+                                <button class="edit-btn" data-section="${section}" data-index="${index}">Edit</button>
+                                <button class="delete-btn" data-section="${section}" data-index="${index}">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    return `
+                        <tr>
+                            <td>${item.pulley_no || ''}</td>
+                            <td>${item.shaft_diameter || ''}</td>
+                            <td>${item.drum_diameter || ''}</td>
+                            <td>${item.drum_length || ''}</td>
+                            <td>${item.shaft_length_1 || ''}</td>
+                            <td>${item.shaft_length_2 || ''}</td>
+                            <td>${item.key_width || ''}</td>
+                            <td>${item.key_length || ''}</td>
+                            <td>${item.lagging_remarks || ''}</td>
+                            <td>${item.remarks || ''}</td>
+                            <td class="actions">
+                                <button class="edit-btn" data-section="${section}" data-index="${index}">Edit</button>
+                                <button class="delete-btn" data-section="${section}" data-index="${index}">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }).join('');
+        }
+
+        function renderAllTables() {
+            renderTable('database');
+            renderTable('slaking');
+            renderTable('2nd_lift');
+            renderAreaTabs();
+            renderAreaContents();
+
+            // Clear search inputs
+            document.querySelectorAll('.search-input').forEach(input => {
+                input.value = '';
+            });
+            document.querySelectorAll('.area-search-input').forEach(input => {
+                input.value = '';
+            });
+        }
+
+        function renderAreaTabs() {
+            const tabs = document.querySelector('.tabs');
+            if (!tabs || !pulleyData) return;
+
+            const existingAreaTabs = Array.from(tabs.querySelectorAll('.area-tab'));
+            existingAreaTabs.forEach(tab => tab.remove());
+
+            const addAreaButton = document.getElementById('add-area-btn');
+            pulleyData.areas.forEach((area, areaIndex) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'tab area-tab';
+                button.dataset.areaIndex = areaIndex;
+                button.innerHTML = `
+                    <span>${area.name || `Area ${areaIndex + 1}`}</span>
+                    <div class="area-actions">
+                        <button class="area-action-btn area-edit-btn" data-area-index="${areaIndex}" title="Edit area name">✏️ Edit Name</button>
+                        <button class="area-action-btn area-delete-btn" data-area-index="${areaIndex}" title="Delete area">🗑️ Delete Area</button>
+                    </div>
+                `;
+                tabs.insertBefore(button, addAreaButton);
+            });
+        }
+
+        function renderAreaContents() {
+            const container = document.getElementById('dynamic-area-contents');
+            if (!container || !pulleyData) return;
+
+            container.innerHTML = pulleyData.areas.map((area, areaIndex) => {
+                const pulleysHtml = (area.pulleys || []).map((item, itemIndex) => `
+                    <tr>
+                        <td>${item.pulley_no || ''}</td>
+                        <td>${item.shaft_diameter || ''}</td>
+                        <td>${item.drum_diameter || ''}</td>
+                        <td>${item.drum_length || ''}</td>
+                        <td>${item.shaft_length_1 || ''}</td>
+                        <td>${item.shaft_length_2 || ''}</td>
+                        <td>${item.key_width || ''}</td>
+                        <td>${item.key_length || ''}</td>
+                        <td>${item.lagging_remarks || ''}</td>
+                        <td>${item.remarks || ''}</td>
+                        <td class="actions">
+                            <button class="edit-btn" type="button" data-area-index="${areaIndex}" data-pulley-index="${itemIndex}">Edit</button>
+                            <button class="delete-btn" type="button" data-area-index="${areaIndex}" data-pulley-index="${itemIndex}">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                return `
+                    <div id="area-content-${areaIndex}" class="tab-content">
+                        <div class="section-header">
+                            <h2>📍 ${area.name}</h2>
+                            <div class="section-controls">
+                                <input type="text" class="search-input area-search-input" placeholder="Search pulleys in ${area.name}..." data-area-index="${areaIndex}" />
+                                <button class="add-btn" type="button" data-area-index="${areaIndex}">+ Add Pulley</button>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table id="area-table-${areaIndex}">
+                                <thead>
+                                    <tr>
+                                        <th>Pulley No</th>
+                                        <th>Shaft Ø (mm)</th>
+                                        <th>Drum Ø (mm)</th>
+                                        <th>Drum L (mm)</th>
+                                        <th>Shaft L1 (mm)</th>
+                                        <th>Shaft L2 (mm)</th>
+                                        <th>Key W (mm)</th>
+                                        <th>Key L (mm)</th>
+                                        <th>Lagging</th>
+                                        <th>Remarks</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${pulleysHtml || '<tr><td colspan="11">No pulleys in this area yet.</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (!pulleyData.areas.length) {
+                container.innerHTML = '<div class="tab-content"><p style="padding: 20px;">No custom areas yet. Use + Add Area to create one.</p></div>';
+            }
+        }
+
+        function activateAreaTab(areaIndex) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            const areaButton = document.querySelector(`.area-tab[data-area-index="${areaIndex}"]`);
+            const areaContent = document.getElementById(`area-content-${areaIndex}`);
+            if (areaButton && areaContent) {
+                areaButton.classList.add('active');
+                areaContent.classList.add('active');
+            }
+        }
+
+        function addArea() {
+            const name = prompt('Enter the new area name:');
+            if (!name) return;
+            pulleyData.areas.push({ name: name.trim(), pulleys: [] });
+            renderAreaTabs();
+            renderAreaContents();
+            activateAreaTab(pulleyData.areas.length - 1);
+        }
+
+        function editAreaName(areaIndex) {
+            const area = pulleyData.areas[areaIndex];
+            const currentName = area.name || `Area ${areaIndex + 1}`;
+            const newName = prompt('Enter the new area name:', currentName);
+            if (!newName || newName === currentName) return;
+            area.name = newName.trim();
+            renderAreaTabs();
+            renderAreaContents();
+            activateAreaTab(areaIndex);
+        }
+
+        function deleteArea(areaIndex) {
+            const area = pulleyData.areas[areaIndex];
+            const areaName = area.name || `Area ${areaIndex + 1}`;
+            if (!confirm(`Are you sure you want to delete "${areaName}"? This will remove all pulleys in this area.`)) return;
+            pulleyData.areas.splice(areaIndex, 1);
+            renderAreaTabs();
+            renderAreaContents();
+            if (pulleyData.areas.length > 0) {
+                activateAreaTab(0);
+            } else {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                const databaseTab = document.querySelector('[data-tab="database"]');
+                if (databaseTab) {
+                    databaseTab.classList.add('active');
+                    document.getElementById('database').classList.add('active');
+                }
+            }
+        }
+
+        function showModal(section, index = -1) {
+            const modal = document.getElementById('edit-modal');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+
+            modalMode = 'item';
+            currentSection = section;
+            editingIndex = index;
+            currentAreaIndex = -1;
+            editingAreaPulleyIndex = -1;
+
+            title.textContent = index === -1 ? 'Add New Pulley' : 'Edit Pulley';
+            const item = index === -1 ? {} : pulleyData[section][index];
+            body.innerHTML = `<form id="edit-form">${generateForm(section, item)}</form>`;
+
+            modal.style.display = 'block';
+        }
+
+        function showAreaPulleyModal(areaIndex, pulleyIndex = -1) {
+            const modal = document.getElementById('edit-modal');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+
+            modalMode = 'area-pulley';
+            currentAreaIndex = areaIndex;
+            editingAreaPulleyIndex = pulleyIndex;
+            currentSection = 'areas';
+            editingIndex = -1;
+
+            const area = pulleyData.areas[areaIndex];
+            const item = pulleyIndex === -1 ? {} : area.pulleys[pulleyIndex];
+
+            title.textContent = pulleyIndex === -1 ? `Add Pulley to ${area.name}` : `Edit Pulley in ${area.name}`;
+            body.innerHTML = `<form id="edit-form">${generateForm('area_pulley', item)}</form>`;
+
+            modal.style.display = 'block';
+        }
+
+        function generateForm(section, itemData = {}) {
+            const fields = fieldDefinitions[section];
+            const item = itemData || {};
+
+            return `
+                <div class="form-grid">
+                    ${fields.map(field => `
+                        <div class="form-group">
+                            <label>${field.label}${field.required ? ' *' : ''}</label>
+                            ${field.type === 'textarea' ?
+                                `<textarea name="${field.key}" ${field.required ? 'required' : ''}>${item[field.key] || ''}</textarea>` :
+                                `<input type="${field.type}" name="${field.key}" value="${item[field.key] || ''}" ${field.required ? 'required' : ''} />`
+                            }
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function saveItem() {
+            const form = document.getElementById('edit-form');
+            if (!form) return;
+
+            if (modalMode === 'area-pulley') {
+                const fields = fieldDefinitions.area_pulley;
+                const item = {};
+
+                fields.forEach(field => {
+                    const input = form.querySelector(`[name="${field.key}"]`);
+                    let value = input.value;
+
+                    if (field.type === 'number' && value && !isNaN(value)) {
+                        item[field.key] = parseFloat(value);
+                    } else {
+                        item[field.key] = value;
+                    }
+                });
+
+                const requiredFields = fields.filter(f => f.required);
+                const missingFields = requiredFields.filter(f => !item[f.key]);
+                if (missingFields.length > 0) {
+                    alert(`Please fill in required fields: ${missingFields.map(f => f.label).join(', ')}`);
+                    return;
+                }
+
+                const area = pulleyData.areas[currentAreaIndex];
+                if (!area.pulleys) area.pulleys = [];
+                if (editingAreaPulleyIndex === -1) {
+                    area.pulleys.push(item);
+                } else {
+                    area.pulleys[editingAreaPulleyIndex] = item;
+                }
+
+                renderAreaContents();
+                closeModal();
+                return;
+            }
+
+            const formData = new FormData(form);
+            const fields = fieldDefinitions[currentSection];
+            const item = {};
+
+            fields.forEach(field => {
+                const input = form.querySelector(`[name="${field.key}"]`);
+                let value = input.value;
+
+                if (field.type === 'number' && value && !isNaN(value)) {
+                    item[field.key] = parseFloat(value);
+                } else {
+                    item[field.key] = value;
+                }
+            });
+
+            const requiredFields = fields.filter(f => f.required);
+            const missingFields = requiredFields.filter(f => !item[f.key]);
+
+            if (missingFields.length > 0) {
+                alert(`Please fill in required fields: ${missingFields.map(f => f.label).join(', ')}`);
+                return;
+            }
+
+            if (editingIndex === -1) {
+                pulleyData[currentSection].push(item);
+            } else {
+                pulleyData[currentSection][editingIndex] = item;
+            }
+
+            renderAllTables();
+            closeModal();
+        }
+
+        function deleteItem(section, index) {
+            if (confirm('Are you sure you want to delete this item?')) {
+                pulleyData[section].splice(index, 1);
+                renderAllTables();
+            }
+        }
+
+        function deleteAreaPulley(areaIndex, pulleyIndex) {
+            if (!confirm('Are you sure you want to delete this pulley from the area?')) return;
+            pulleyData.areas[areaIndex].pulleys.splice(pulleyIndex, 1);
+            renderAreaContents();
+        }
+
+        function closeModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        function exportData() {
+            const dataStr = JSON.stringify(pulleyData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'pulley_data_updated.json';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            URL.revokeObjectURL(url);
+            updateStatus('Data exported successfully');
+        }
+
+        function filterTable(section, searchTerm) {
+            const table = document.getElementById(section + '-table');
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            const rows = tbody.querySelectorAll('tr');
+
+            searchTerm = searchTerm.toLowerCase().trim();
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const isVisible = searchTerm === '' || text.includes(searchTerm);
+                row.style.display = isVisible ? '' : 'none';
+            });
+        }
+
+        function filterAreaTable(areaIndex, searchTerm) {
+            const table = document.getElementById(`area-table-${areaIndex}`);
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            const rows = tbody.querySelectorAll('tr');
+
+            searchTerm = searchTerm.toLowerCase().trim();
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const isVisible = searchTerm === '' || text.includes(searchTerm);
+                row.style.display = isVisible ? '' : 'none';
+            });
+        }
+
+        // Event listeners
+        document.getElementById('data-file').addEventListener('change', function() {
+            document.getElementById('load-data-btn').disabled = !this.files.length;
+        });
+
+        document.getElementById('load-data-btn').addEventListener('click', loadData);
+
+        document.querySelector('.tabs').addEventListener('click', function(e) {
+            const tab = e.target.closest('.tab');
+            if (!tab) return;
+
+            if (tab.id === 'add-area-btn') {
+                addArea();
+                return;
+            }
+
+            if (tab.dataset.tab) {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+                return;
+            }
+
+            if (tab.dataset.areaIndex !== undefined) {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                tab.classList.add('active');
+                activateAreaTab(tab.dataset.areaIndex);
+            }
+        });
+
+        document.querySelectorAll('.search-input').forEach(input => {
+            input.addEventListener('input', function() {
+                const section = this.dataset.section;
+                const searchTerm = this.value;
+                filterTable(section, searchTerm);
+            });
+        });
+
+        document.addEventListener('input', function(e) {
+            if (e.target.classList.contains('area-search-input')) {
+                const areaIndex = parseInt(e.target.dataset.areaIndex, 10);
+                const searchTerm = e.target.value;
+                filterAreaTable(areaIndex, searchTerm);
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('add-btn') && e.target.dataset.section) {
+                showModal(e.target.dataset.section);
+            } else if (e.target.classList.contains('add-btn') && e.target.dataset.areaIndex !== undefined) {
+                showAreaPulleyModal(parseInt(e.target.dataset.areaIndex, 10));
+            } else if (e.target.classList.contains('edit-btn') && e.target.dataset.section) {
+                showModal(e.target.dataset.section, parseInt(e.target.dataset.index, 10));
+            } else if (e.target.classList.contains('edit-btn') && e.target.dataset.areaIndex !== undefined) {
+                showAreaPulleyModal(parseInt(e.target.dataset.areaIndex, 10), parseInt(e.target.dataset.pulleyIndex, 10));
+            } else if (e.target.classList.contains('delete-btn') && e.target.dataset.section) {
+                deleteItem(e.target.dataset.section, parseInt(e.target.dataset.index, 10));
+            } else if (e.target.classList.contains('delete-btn') && e.target.dataset.areaIndex !== undefined) {
+                deleteAreaPulley(parseInt(e.target.dataset.areaIndex, 10), parseInt(e.target.dataset.pulleyIndex, 10));
+            } else if (e.target.classList.contains('area-edit-btn')) {
+                e.stopPropagation();
+                const areaIndex = parseInt(e.target.dataset.areaIndex, 10);
+                editAreaName(areaIndex);
+            } else if (e.target.classList.contains('area-delete-btn')) {
+                e.stopPropagation();
+                const areaIndex = parseInt(e.target.dataset.areaIndex, 10);
+                deleteArea(areaIndex);
+            }
+        });
+
+        document.querySelector('.close').addEventListener('click', closeModal);
+        document.querySelector('.cancel-btn').addEventListener('click', closeModal);
+        document.querySelector('.save-btn').addEventListener('click', saveItem);
+
+        document.getElementById('export-btn').addEventListener('click', exportData);
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(e) {
+            const modal = document.getElementById('edit-modal');
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Initialize
+        updateStatus('Please load a JSON file to begin editing');
+    </script>
+</body>
+</html>
